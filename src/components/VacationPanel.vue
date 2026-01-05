@@ -37,12 +37,12 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-if="vac.rows.length === 0">
+          <tr v-if="vacation.rows.length === 0">
             <td colspan="4" class="py-4 text-neutral-500">
               Keine Einträge – füge oben Zeilen hinzu.
             </td>
           </tr>
-          <tr v-for="r in vac.rows" :key="r.id" class="border-t">
+          <tr v-for="r in vacation.rows" :key="r.id" class="border-t">
             <td class="py-2 pr-3">
               <input
                 class="px-2 py-1.5 rounded-lg border w-full"
@@ -92,8 +92,12 @@ import { computed } from "vue";
 import type { VacationRow, VacationState } from "../lib/types";
 import { clampNumber, formatNum, uid } from "../lib/utils";
 
-const { vac, workdayHours, computed: stats } = defineProps<{
-  vac: VacationState;
+const {
+  vacation: vacation,
+  workdayHours,
+  computed: stats,
+} = defineProps<{
+  vacation: VacationState;
   workdayHours: number;
   computed: {
     hoursUsed: number;
@@ -103,7 +107,7 @@ const { vac, workdayHours, computed: stats } = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  "update:vac": [val: VacationState];
+  "update:vacation": [val: VacationState];
   "update:workdayHours": [val: number];
 }>();
 
@@ -114,23 +118,26 @@ const workdayHoursProxy = computed<number>({
 });
 
 const systemRemainingHoursProxy = computed<number>({
-  get: () => vac.systemRemainingHours,
-  set: (v) => emit("update:vac", { ...vac, systemRemainingHours: v }),
+  get: () => vacation.systemRemainingHours,
+  set: (v) => emit("update:vacation", { ...vacation, systemRemainingHours: v }),
 });
 
 function addRow() {
-  emit("update:vac", {
-    ...vac,
-    rows: [...vac.rows, { id: uid(), label: "Ferien", days: 1 }],
+  emit("update:vacation", {
+    ...vacation,
+    rows: [...vacation.rows, { id: uid(), label: "Ferien", days: 1 }],
   });
 }
 function updateRow(id: string, patch: Partial<VacationRow>) {
-  emit("update:vac", {
-    ...vac,
-    rows: vac.rows.map((r) => (r.id === id ? { ...r, ...patch } : r)),
+  emit("update:vacation", {
+    ...vacation,
+    rows: vacation.rows.map((r) => (r.id === id ? { ...r, ...patch } : r)),
   });
 }
 function deleteRow(id: string) {
-  emit("update:vac", { ...vac, rows: vac.rows.filter((r) => r.id !== id) });
+  emit("update:vacation", {
+    ...vacation,
+    rows: vacation.rows.filter((r) => r.id !== id),
+  });
 }
 </script>

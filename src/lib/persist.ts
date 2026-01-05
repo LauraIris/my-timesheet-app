@@ -17,8 +17,8 @@ async function readFromOpfs(ts: any): Promise<boolean> {
     const txt = await file.text();
     const data = JSON.parse(txt) as AppData;
     ts.value = data.ts;
-    // try to migrate older packages that had top-level vac + months
-    // If we detected an older bundle that stored ts + vac separately
+    // try to migrate older packages that had top-level vacation + months
+    // If we detected an older bundle that stored ts + vacation separately
     opfsStatus.value = "loaded";
     return true;
   } catch {

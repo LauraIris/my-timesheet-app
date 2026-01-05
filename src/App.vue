@@ -67,7 +67,7 @@
         </section>
         <aside class="md:col-span-1">
           <VacationPanel
-            v-model:vac="vac"
+            v-model:vacation="vacation"
             v-model:workday-hours="workdayHours"
             :computed="vacationComputed"
           />
@@ -187,24 +187,25 @@ const workdayHours = computed({
 });
 
 // vac proxy for selected year
-const vac = computed({
+const vacation = computed({
   get: () =>
-    getTimesheetStateOfYear(selectedYear.value).vac ?? defaultVacationState(),
+    getTimesheetStateOfYear(selectedYear.value).vacation ??
+    defaultVacationState(),
   set: (v) => {
     const year = selectedYear.value;
     const y =
       getTimesheetStateOfYear(year) ||
       defaultYearState(Number(prevCarry.value));
-    ts.value.years = { ...ts.value.years, [year]: { ...y, vac: v } };
+    ts.value.years = { ...ts.value.years, [year]: { ...y, vacation: v } };
   },
 });
 
 const vacationComputed = computed(() => {
-  const hoursUsed = vac.value.rows.reduce(
+  const hoursUsed = vacation.value.rows.reduce(
     (acc, r) => acc + r.days * workdayHours.value,
     0
   );
-  const hoursRemaining = vac.value.systemRemainingHours - hoursUsed;
+  const hoursRemaining = vacation.value.systemRemainingHours - hoursUsed;
   const daysRemaining = hoursRemaining / workdayHours.value;
   return { hoursUsed, hoursRemaining, daysRemaining };
 });

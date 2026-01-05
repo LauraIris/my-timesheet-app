@@ -13,7 +13,7 @@ export type YearState = {
   months: Record<number, Month>;
   prevYearCarry: number;
   workdayHours: number;
-  vac: VacationState;
+  vacation: VacationState;
 };
 
 export const DEFAULT_WORKDAY_HOURS = 8.4;
@@ -34,7 +34,7 @@ export function defaultYearState(
     months: {},
     prevYearCarry,
     workdayHours: DEFAULT_WORKDAY_HOURS,
-    vac: vacationState || defaultVacationState(),
+    vacation: vacationState || defaultVacationState(),
   };
 }
 
