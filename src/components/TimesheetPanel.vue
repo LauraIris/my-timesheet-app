@@ -150,7 +150,7 @@ const emit = defineEmits<{
 }>();
 
 function ensureMonth(year: number, monthIndex0: number) {
-  const y = props.ts.years[year] || defaultYearState(year);
+  const y = props.ts.years[year] || defaultYearState(props.prevYearCarry || 0);
   const months = { ...y.months };
   if (!months[monthIndex0]) {
     const dim = getDaysInMonth(year, monthIndex0);
@@ -244,12 +244,10 @@ function commitDay(m0: number, d: number, raw: string) {
   const normalized = raw.replace(",", ".").trim();
   const num = Number(normalized);
   const val = Number.isFinite(num) ? num : 0;
-  const y = props.ts.years[props.selectedYear] || {
-    months: {},
-    prevYearCarry: 0,
-    workdayHours: 8.4,
-    vac: { systemRemainingHours: 87.5, rows: [] },
-  };
+  const y =
+    props.ts.years[props.selectedYear] ||
+    defaultYearState(props.prevYearCarry || 0);
+  y.prevYearCarry = props.prevYearCarry || 0;
   const months = { ...y.months };
   const month = { ...months[m0], [d]: val };
   months[m0] = month;

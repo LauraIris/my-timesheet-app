@@ -124,7 +124,9 @@ function getTimesheetStateYears(): Year {
 }
 
 function getTimesheetStateOfYear(year: any): YearState {
-  return getTimesheetStateYears()[year] || defaultYearState(year);
+  return (
+    getTimesheetStateYears()[year] || defaultYearState(Number(prevCarry.value))
+  );
 }
 
 function getYears(): number[] {
@@ -191,7 +193,8 @@ const vac = computed({
   set: (v) => {
     const year = selectedYear.value;
     const y =
-      getTimesheetStateOfYear(year) || defaultYearState(getPrevYearCarry(year));
+      getTimesheetStateOfYear(year) ||
+      defaultYearState(Number(prevCarry.value));
     ts.value.years = { ...ts.value.years, [year]: { ...y, vac: v } };
   },
 });
