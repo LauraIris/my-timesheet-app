@@ -1,9 +1,6 @@
 export type YearMonth = `${number}-${number}`; // e.g. "2025-9"
 
-export type TimesheetState = {
-  months: Record<YearMonth, Record<number, number>>; // day -> hours
-  prevYearCarry: number; // carry from previous year
-};
+export type Month = Record<number, number>; // day -> hours
 
 export type VacationRow = { id: string; label: string; days: number };
 
@@ -13,9 +10,18 @@ export type VacationState = {
   rows: VacationRow[];
 };
 
+export type YearState = {
+  months: Record<number, Month>;
+  prevYearCarry: number;
+  vac: VacationState;
+};
+
+export type TimesheetState = {
+  years: Record<number, YearState>;
+};
+
 export type AppData = {
-  version: 1;
+  version: 2;
   updatedAt: string;
   ts: TimesheetState;
-  vac: VacationState;
 };

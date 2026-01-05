@@ -114,7 +114,12 @@
       <label :for="carryId" class="text-sm text-neutral-600"
         >Vorjahr (Carry):</label
       >
-      <NumberField :id="carryId" v-model="prevYearCarryProxy" />
+      <div
+        id="carry-display"
+        class="px-3 py-2 rounded-xl border bg-neutral-100 w-28 text-right font-medium"
+      >
+        {{ formatNum(prevYearCarry ?? 0) }}
+      </div>
       <span class="text-xs text-neutral-500">Stunden</span>
     </div>
   </div>
@@ -122,11 +127,9 @@
 
 <script setup lang="ts">
 import { computed, watch } from "vue"; // add ref
-import NumberField from "./NumberField.vue";
 import type { TimesheetState } from "../lib/types";
 import {
   formatNum,
-  ymKey,
   getDaysInMonth,
   monthLabel,
   monthName,
@@ -138,6 +141,7 @@ const props = defineProps<{
   ts: TimesheetState;
   selYear: number;
   selM0: number;
+  prevYearCarry?: number;
 }>();
 const emit = defineEmits<{
   "update:ts": [val: TimesheetState];
@@ -146,14 +150,23 @@ const emit = defineEmits<{
 }>();
 
 function ensureMonth(year: number, monthIndex0: number) {
-  const key = ymKey(year, monthIndex0);
-  if (!props.ts.months[key]) {
+  const y = props.ts.years[year] || {
+    months: {},
+    prevYearCarry: 0,
+    vac: { workdayHours: 8.4, systemRemainingHours: 87.5, rows: [] },
+  };
+  const months = { ...(y.months || {}) };
+  if (!months[monthIndex0]) {
     const dim = getDaysInMonth(year, monthIndex0);
     const blank: Record<number, number> = {};
     for (let d = 1; d <= dim; d++) blank[d] = 0;
+    months[monthIndex0] = blank;
     emit("update:ts", {
       ...props.ts,
-      months: { ...props.ts.months, [key]: blank },
+      years: {
+        ...props.ts.years,
+        [year]: { ...y, months },
+      },
     });
   }
 }
@@ -161,7 +174,12 @@ function ensureMonth(year: number, monthIndex0: number) {
 const now = new Date();
 const currentYear = now.getFullYear();
 const currentMonth0 = now.getMonth();
-const yearOptions = [currentYear - 1, currentYear, currentYear + 1];
+const yearOptions = computed(() => {
+  const keys = Object.keys(props.ts.years).map(Number);
+  const s = new Set<number>(keys);
+  s.add(currentYear);
+  return Array.from(s).sort((a, b) => a - b);
+});
 const currentDay = now.getDate();
 
 // Build arrays of days
@@ -201,13 +219,13 @@ watch(
 );
 
 function dayValue(m0: number, d: number) {
-  const key = ymKey(props.selYear, m0);
-  return props.ts.months[key]?.[d] ?? 0;
+  const months = props.ts.years[props.selYear]?.months || {};
+  return months[m0]?.[d] ?? 0;
 }
 
 function monthTotal(m0: number) {
-  const key = ymKey(props.selYear, m0);
-  const days = props.ts.months[key] || {};
+  const months = props.ts.years[props.selYear]?.months || {};
+  const days = months[m0] || {};
   return Object.values(days).reduce((a: number, b: number) => a + (b || 0), 0);
 }
 const ytdTotal = computed(() =>
@@ -216,11 +234,6 @@ const ytdTotal = computed(() =>
     0
   )
 );
-
-const prevYearCarryProxy = computed<number>({
-  get: () => props.ts.prevYearCarry,
-  set: (v) => emit("update:ts", { ...props.ts, prevYearCarry: v }),
-});
 
 function onYearChange(e: Event) {
   const y = Number((e.target as HTMLSelectElement).value);
@@ -235,11 +248,17 @@ function commitDay(m0: number, d: number, raw: string) {
   const normalized = raw.replace(",", ".").trim();
   const num = Number(normalized);
   const val = Number.isFinite(num) ? num : 0;
-  const key = ymKey(props.selYear, m0);
-  const month = { ...(props.ts.months[key] || {}), [d]: val };
+  const y = props.ts.years[props.selYear] || {
+    months: {},
+    prevYearCarry: 0,
+    vac: { workdayHours: 8.4, systemRemainingHours: 87.5, rows: [] },
+  };
+  const months = { ...(y.months || {}) };
+  const month = { ...(months[m0] || {}), [d]: val };
+  months[m0] = month;
   emit("update:ts", {
     ...props.ts,
-    months: { ...props.ts.months, [key]: month },
+    years: { ...props.ts.years, [props.selYear]: { ...y, months } },
   });
 }
 </script>

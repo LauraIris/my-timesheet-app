@@ -13,7 +13,7 @@
           </p>
         </div>
         <TotalsCard
-          :prev-year-carry="ts.prevYearCarry"
+          :prev-year-carry="currentPrevCarry"
           :current-year-total="currentYearTotal"
           :grand-total="grandTotal"
         />
@@ -86,12 +86,9 @@ import TotalsCard from "./components/TotalsCard.vue";
 import TimesheetPanel from "./components/TimesheetPanel.vue";
 import VacationPanel from "./components/VacationPanel.vue";
 import { usePersistedAppData } from "./lib/persist";
-import type { YearMonth } from "./lib/types";
-import { parseYmKey } from "./lib/utils";
 
 const {
   ts,
-  vac,
   opfsSupported,
   opfsStatus,
   downloadJson,
@@ -114,21 +111,47 @@ async function onImportFile(e: Event) {
 // Year totals for TotalsCard
 const yearTotals = computed(() => {
   const yTotals: Record<number, number> = {};
-  for (const k in ts.value.months as Record<YearMonth, any>) {
-    const { year } = parseYmKey(k as YearMonth);
-    const sumK = Object.values(ts.value.months[k as YearMonth] || {}).reduce(
-      (a: number, b: number) => a + (b || 0),
-      0
-    );
-    yTotals[year] = (yTotals[year] || 0) + sumK;
+  for (const yKey in ts.value.years) {
+    const y = Number(yKey);
+    const yState = ts.value.years[y] || ({ months: {} } as any);
+    let sum = 0;
+    for (const mKey in yState.months || {}) {
+      sum += Object.values(yState.months[mKey] || {}).reduce(
+        (a: number, b: number) => a + (b || 0),
+        0
+      );
+    }
+    yTotals[y] = sum;
   }
   return yTotals;
 });
 
 const currentYearTotal = computed(() => yearTotals.value[selYear.value] || 0);
-const grandTotal = computed(
-  () => ts.value.prevYearCarry + currentYearTotal.value
+const currentPrevCarry = computed(
+  () => ts.value.years[selYear.value]?.prevYearCarry ?? 0
 );
+const grandTotal = computed(
+  () => currentPrevCarry.value + currentYearTotal.value
+);
+
+// vac proxy for selected year
+const vac = computed({
+  get: () =>
+    ts.value.years[selYear.value]?.vac ?? {
+      workdayHours: 8.4,
+      systemRemainingHours: 87.5,
+      rows: [],
+    },
+  set: (v) => {
+    const year = selYear.value;
+    const y = ts.value.years[year] || {
+      months: {},
+      prevYearCarry: 0,
+      vac: { workdayHours: 8.4, systemRemainingHours: 87.5, rows: [] },
+    };
+    ts.value.years = { ...ts.value.years, [year]: { ...y, vac: v } };
+  },
+});
 
 const vacationComputed = computed(() => {
   const hoursUsed = vac.value.rows.reduce(
