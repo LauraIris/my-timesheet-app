@@ -66,7 +66,11 @@
           />
         </section>
         <aside class="md:col-span-1">
-          <VacationPanel v-model:vac="vac" :computed="vacationComputed" />
+          <VacationPanel
+            v-model:vac="vac"
+            v-model:workday-hours="workdayHours"
+            :computed="vacationComputed"
+          />
         </aside>
       </div>
 
@@ -87,6 +91,12 @@ import TotalsCard from "./components/TotalsCard.vue";
 import TimesheetPanel from "./components/TimesheetPanel.vue";
 import VacationPanel from "./components/VacationPanel.vue";
 import { usePersistedAppData } from "./lib/persist";
+import type { YearState, TimesheetState, Year } from "./lib/types";
+import {
+  defaultVacationState,
+  defaultYearState,
+  DEFAULT_WORKDAY_HOURS,
+} from "./lib/types";
 
 const {
   ts,
@@ -109,11 +119,25 @@ async function onImportFile(e: Event) {
   input.value = "";
 }
 
+function getTimesheetStateYears(): Year {
+  return ts.value.years as TimesheetState;
+}
+
+function getTimesheetStateOfYear(year: any): YearState {
+  return getTimesheetStateYears()[year] || defaultYearState(year);
+}
+
+function getYears(): number[] {
+  return Object.keys(getTimesheetStateYears())
+    .map(Number)
+    .sort((a, b) => a - b);
+}
+
 // Year totals for TotalsCard
 const yearTotals = computed(() => {
   const yTotals: Record<number, number> = {};
-  for (const year in ts.value.years) {
-    const yState = ts.value.years[year] || ({ months: {} } as any);
+  for (const year in getTimesheetStateYears()) {
+    const yState = getTimesheetStateOfYear(year);
     let sum = 0;
     for (const month in yState.months || {}) {
       sum += Object.values(yState.months[month] || {}).reduce(
@@ -129,10 +153,8 @@ const yearTotals = computed(() => {
 const currentYearTotal = computed(
   () => yearTotals.value[selectedYear.value] || 0
 );
-const prevCarry = computed(() => {
-  console.log("Year Totals:", yearTotals);
-  console.log("Year Totals.value:", yearTotals.value);
-  const year = selectedYear.value;
+
+function getPrevYearCarry(year: number): number {
   const totals = yearTotals.value;
   const prevYears = Object.keys(totals)
     .map(Number)
@@ -141,36 +163,46 @@ const prevCarry = computed(() => {
     return prevYears.reduce((s, y) => s + (totals[y] || 0), 0);
   }
   // fallback to stored value when no previous-year totals available
-  return ts.value.years[year]?.prevYearCarry ?? 0;
+  return getTimesheetStateOfYear(year).prevYearCarry;
+}
+
+const prevCarry = computed(() => {
+  return getPrevYearCarry(selectedYear.value);
 });
+
 const grandTotal = computed(() => prevCarry.value + currentYearTotal.value);
+
+// workday hours for selected year
+const workdayHours = computed({
+  get: () =>
+    getTimesheetStateOfYear(selectedYear.value).workdayHours ??
+    DEFAULT_WORKDAY_HOURS,
+  set: (v) => {
+    const year = selectedYear.value;
+    const y = getTimesheetStateOfYear(year);
+    ts.value.years = { ...ts.value.years, [year]: { ...y, workdayHours: v } };
+  },
+});
 
 // vac proxy for selected year
 const vac = computed({
   get: () =>
-    ts.value.years[selectedYear.value]?.vac ?? {
-      workdayHours: 8.4,
-      systemRemainingHours: 87.5,
-      rows: [],
-    },
+    getTimesheetStateOfYear(selectedYear.value).vac ?? defaultVacationState(),
   set: (v) => {
     const year = selectedYear.value;
-    const y = ts.value.years[year] || {
-      months: {},
-      prevYearCarry: 0,
-      vac: { workdayHours: 8.4, systemRemainingHours: 87.5, rows: [] },
-    };
+    const y =
+      getTimesheetStateOfYear(year) || defaultYearState(getPrevYearCarry(year));
     ts.value.years = { ...ts.value.years, [year]: { ...y, vac: v } };
   },
 });
 
 const vacationComputed = computed(() => {
   const hoursUsed = vac.value.rows.reduce(
-    (acc, r) => acc + r.days * vac.value.workdayHours,
+    (acc, r) => acc + r.days * workdayHours.value,
     0
   );
   const hoursRemaining = vac.value.systemRemainingHours - hoursUsed;
-  const daysRemaining = hoursRemaining / vac.value.workdayHours;
+  const daysRemaining = hoursRemaining / workdayHours.value;
   return { hoursUsed, hoursRemaining, daysRemaining };
 });
 </script>

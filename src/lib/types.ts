@@ -1,11 +1,10 @@
-export type YearMonth = `${number}-${number}`; // e.g. "2025-9"
-
 export type Month = Record<number, number>; // day -> hours
 
 export type VacationRow = { id: string; label: string; days: number };
 
+export type Year = Record<number, YearState>;
+
 export type VacationState = {
-  workdayHours: number;
   systemRemainingHours: number;
   rows: VacationRow[];
 };
@@ -13,11 +12,34 @@ export type VacationState = {
 export type YearState = {
   months: Record<number, Month>;
   prevYearCarry: number;
+  workdayHours: number;
   vac: VacationState;
 };
 
+export const DEFAULT_WORKDAY_HOURS = 8.4;
+export const DEFAULT_VACATION_REMAINING_HOURS = 87.5;
+
+export function defaultVacationState(): VacationState {
+  return {
+    systemRemainingHours: DEFAULT_VACATION_REMAINING_HOURS,
+    rows: [],
+  };
+}
+
+export function defaultYearState(
+  prevYearCarry: number,
+  vacationState?: VacationState
+): YearState {
+  return {
+    months: {},
+    prevYearCarry,
+    workdayHours: DEFAULT_WORKDAY_HOURS,
+    vac: vacationState || defaultVacationState(),
+  };
+}
+
 export type TimesheetState = {
-  years: Record<number, YearState>;
+  years: Year;
 };
 
 export type AppData = {

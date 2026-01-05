@@ -1,6 +1,5 @@
 import { ref, onMounted, watch } from "vue";
-import type { AppData, TimesheetState } from "./types";
-import { parseYmKey } from "./utils";
+import type { AppData, TimesheetState, YearState } from "./types";
 
 const STORAGE_KEY_TS = "timesheet_state_vue";
 
@@ -9,26 +8,6 @@ export const opfsSupported =
   typeof (navigator as any).storage?.getDirectory === "function";
 export const opfsStatus = ref<"idle" | "loaded" | "saved" | "error">("idle");
 
-function migrateOldToNew(old: any): TimesheetState {
-  // old shape: { months: Record<YearMonth, Record<number, number>>, prevYearCarry: number }
-  const years: Record<number, any> = {};
-  if (old?.months && typeof old.months === "object") {
-    for (const k in old.months) {
-      try {
-        const { year, monthIndex0 } = parseYmKey(k as any);
-        years[year] ||= { months: {}, prevYearCarry: 0, vac: null };
-        years[year].months[monthIndex0] = old.months[k];
-        // copy old prevYearCarry into each year (best-effort)
-        years[year].prevYearCarry = old.prevYearCarry ?? 0;
-      } catch {
-        // ignore parse errors
-      }
-    }
-  }
-  // If nothing found, return empty
-  return { years };
-}
-
 async function readFromOpfs(ts: any): Promise<boolean> {
   if (!opfsSupported) return false;
   try {
@@ -36,21 +15,10 @@ async function readFromOpfs(ts: any): Promise<boolean> {
     const handle = await root.getFileHandle("app-data.json");
     const file = await handle.getFile();
     const txt = await file.text();
-    const data: any = JSON.parse(txt); // const data = JSON.parse(txt) as AppData;
-    if (data?.ts) ts.value = data.ts;
+    const data = JSON.parse(txt) as AppData;
+    ts.value = data.ts;
     // try to migrate older packages that had top-level vac + months
-    if (!data?.ts && (data?.months || data?.vac)) {
-      ts.value = migrateOldToNew(data);
-    }
     // If we detected an older bundle that stored ts + vac separately
-    if (data?.ts?.months && data?.vac) {
-      const migrated = migrateOldToNew(data.ts);
-      // attach vac to all years
-      for (const y in migrated.years) {
-        migrated.years[y].vac = data.vac;
-      }
-      ts.value = migrated;
-    }
     opfsStatus.value = "loaded";
     return true;
   } catch {
@@ -80,7 +48,7 @@ function buildData(ts: TimesheetState): AppData {
 }
 
 export function usePersistedAppData() {
-  const ts = ref<TimesheetState>({ years: {} });
+  const ts = ref<TimesheetState>({ years: {} as Record<number, YearState> });
 
   onMounted(async () => {
     // Load LS
@@ -88,9 +56,7 @@ export function usePersistedAppData() {
       const rawTs = localStorage.getItem(STORAGE_KEY_TS);
       if (rawTs) {
         const parsed = JSON.parse(rawTs);
-        // support both old and new formats
-        if (parsed?.years) ts.value = parsed;
-        else ts.value = migrateOldToNew(parsed);
+        ts.value = parsed as TimesheetState;
       }
     } catch {}
     // Try OPFS
@@ -132,18 +98,8 @@ export function usePersistedAppData() {
 
   async function importJsonFile(file: File) {
     const txt = await file.text();
-    const data = JSON.parse(txt) as any;
-    if (data?.ts) {
-      // new format
-      ts.value = data.ts;
-      // if imported older format with ts.months + vac
-    } else if (data?.months || data?.vac) {
-      ts.value = migrateOldToNew(data);
-      if (data?.vac) {
-        // attach vac to all years
-        for (const y in ts.value.years) ts.value.years[y].vac = data.vac;
-      }
-    }
+    const data = JSON.parse(txt) as AppData;
+    ts.value = data.ts;
     await persistAll();
   }
 

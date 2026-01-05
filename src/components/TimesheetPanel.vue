@@ -127,7 +127,7 @@
 
 <script setup lang="ts">
 import { computed, watch } from "vue"; // add ref
-import type { TimesheetState } from "../lib/types";
+import { defaultYearState, type TimesheetState } from "../lib/types";
 import {
   formatNum,
   getDaysInMonth,
@@ -150,12 +150,8 @@ const emit = defineEmits<{
 }>();
 
 function ensureMonth(year: number, monthIndex0: number) {
-  const y = props.ts.years[year] || {
-    months: {},
-    prevYearCarry: 0,
-    vac: { workdayHours: 8.4, systemRemainingHours: 87.5, rows: [] },
-  };
-  const months = { ...(y.months || {}) };
+  const y = props.ts.years[year] || defaultYearState(year);
+  const months = { ...y.months };
   if (!months[monthIndex0]) {
     const dim = getDaysInMonth(year, monthIndex0);
     const blank: Record<number, number> = {};
@@ -251,10 +247,11 @@ function commitDay(m0: number, d: number, raw: string) {
   const y = props.ts.years[props.selYear] || {
     months: {},
     prevYearCarry: 0,
-    vac: { workdayHours: 8.4, systemRemainingHours: 87.5, rows: [] },
+    workdayHours: 8.4,
+    vac: { systemRemainingHours: 87.5, rows: [] },
   };
-  const months = { ...(y.months || {}) };
-  const month = { ...(months[m0] || {}), [d]: val };
+  const months = { ...y.months };
+  const month = { ...months[m0], [d]: val };
   months[m0] = month;
   emit("update:ts", {
     ...props.ts,

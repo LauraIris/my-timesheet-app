@@ -58,7 +58,7 @@
               />
             </td>
             <td class="py-2 pr-3 text-right">
-              {{ formatNum(r.days * vac.workdayHours) }}
+              {{ formatNum(r.days * workdayHours) }}
             </td>
             <td class="py-2 text-right">
               <button
@@ -92,8 +92,9 @@ import { computed } from "vue";
 import type { VacationRow, VacationState } from "../lib/types";
 import { clampNumber, formatNum, uid } from "../lib/utils";
 
-const { vac, computed: stats } = defineProps<{
+const { vac, workdayHours, computed: stats } = defineProps<{
   vac: VacationState;
+  workdayHours: number;
   computed: {
     hoursUsed: number;
     hoursRemaining: number;
@@ -101,12 +102,15 @@ const { vac, computed: stats } = defineProps<{
   };
 }>();
 
-const emit = defineEmits<{ "update:vac": [val: VacationState] }>();
+const emit = defineEmits<{
+  "update:vac": [val: VacationState];
+  "update:workdayHours": [val: number];
+}>();
 
 // 🔧 Computed proxies for v-model on child inputs
 const workdayHoursProxy = computed<number>({
-  get: () => vac.workdayHours,
-  set: (v) => emit("update:vac", { ...vac, workdayHours: v }),
+  get: () => workdayHours,
+  set: (v) => emit("update:workdayHours", v),
 });
 
 const systemRemainingHoursProxy = computed<number>({
