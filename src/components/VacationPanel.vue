@@ -27,12 +27,14 @@
     </div>
 
     <div class="overflow-x-auto">
-      <table class="min-w-full text-sm">
+      <table class="min-w-full text-sm table-fixed">
         <thead>
           <tr class="text-left text-neutral-500">
+            <th class="py-2 pr-3 w-32">Start</th>
+            <th class="py-2 pr-3 w-32">Ende</th>
             <th class="py-2 pr-3">Bezeichnung</th>
-            <th class="py-2 pr-3 w-24 text-right">Tage</th>
-            <th class="py-2 pr-3 w-28 text-right">Stunden</th>
+            <th class="py-2 pr-3 w-24 text-right">Arbeitstage</th>
+            <th class="py-2 pr-3 w-24 text-right">Stunden</th>
             <th class="py-2"></th>
           </tr>
         </thead>
@@ -42,7 +44,21 @@
               Keine Einträge – füge oben Zeilen hinzu.
             </td>
           </tr>
-          <tr v-for="r in vacation.rows" :key="r.id" class="border-t">
+          <tr v-for="r in sortedRows" :key="r.id" class="border-t">
+            <td class="py-2 pr-3">
+              <input
+                type="date"
+                class="px-2 py-1.5 rounded-lg border w-full"
+                v-model="r.startDate"
+              />
+            </td>
+            <td class="py-2 pr-3">
+              <input
+                type="date"
+                class="px-2 py-1.5 rounded-lg border w-full"
+                v-model="r.endDate"
+              />
+            </td>
             <td class="py-2 pr-3">
               <input
                 class="px-2 py-1.5 rounded-lg border w-full"
@@ -65,7 +81,7 @@
                 @click="deleteRow(r.id)"
                 class="px-2 py-1 rounded-lg hover:bg-neutral-100"
               >
-                Löschen
+                <TrashIcon class="w-5 h-5" style="color: red" />
               </button>
             </td>
           </tr>
@@ -91,9 +107,10 @@ import Stat from "./Stat.vue";
 import { computed } from "vue";
 import type { VacationRow, VacationState } from "../lib/types";
 import { clampNumber, formatNum, uid } from "../lib/utils";
+import { TrashIcon } from "@heroicons/vue/24/outline";
 
 const {
-  vacation: vacation,
+  vacation,
   workdayHours,
   computed: stats,
 } = defineProps<{
@@ -122,16 +139,36 @@ const systemRemainingHoursProxy = computed<number>({
   set: (v) => emit("update:vacation", { ...vacation, systemRemainingHours: v }),
 });
 
+function sortRows(rows: VacationRow[]) {
+  const sentinel = "9999-12-31";
+  return rows.slice().sort((a, b) => {
+    const ka =
+      a.startDate && a.startDate.trim() !== "" ? a.startDate : sentinel;
+    const kb =
+      b.startDate && b.startDate.trim() !== "" ? b.startDate : sentinel;
+    if (ka < kb) return -1;
+    if (ka > kb) return 1;
+    return 0;
+  });
+}
+
+const sortedRows = computed(() => sortRows(vacation.rows));
+
 function addRow() {
   emit("update:vacation", {
     ...vacation,
-    rows: [...vacation.rows, { id: uid(), label: "Ferien", days: 1 }],
+    rows: sortRows([
+      ...vacation.rows,
+      { id: uid(), label: "Ferien", days: 1, startDate: "", endDate: "" },
+    ]),
   });
 }
 function updateRow(id: string, patch: Partial<VacationRow>) {
   emit("update:vacation", {
     ...vacation,
-    rows: vacation.rows.map((r) => (r.id === id ? { ...r, ...patch } : r)),
+    rows: sortRows(
+      vacation.rows.map((r) => (r.id === id ? { ...r, ...patch } : r))
+    ),
   });
 }
 function deleteRow(id: string) {

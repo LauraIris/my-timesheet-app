@@ -1,6 +1,12 @@
 export type Month = Record<number, number>; // day -> hours
 
-export type VacationRow = { id: string; label: string; days: number };
+export type VacationRow = {
+  id: string;
+  label: string;
+  days: number;
+  startDate: string; // ISO date YYYY-MM-DD
+  endDate: string; // ISO date YYYY-MM-DD
+};
 
 export type Year = Record<number, YearState>;
 
