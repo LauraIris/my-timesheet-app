@@ -13,7 +13,7 @@
           </p>
         </div>
         <TotalsCard
-          :prev-year-carry="currentPrevCarry"
+          :prev-year-carry="prevCarry"
           :current-year-total="currentYearTotal"
           :grand-total="grandTotal"
         />
@@ -60,8 +60,9 @@
         <section class="md:col-span-2">
           <TimesheetPanel
             v-model:ts="ts"
-            v-model:sel-year="selYear"
+            v-model:sel-year="selectedYear"
             v-model:sel-m0="selM0"
+            :prev-year-carry="prevCarry"
           />
         </section>
         <aside class="md:col-span-1">
@@ -97,7 +98,7 @@ const {
 } = usePersistedAppData();
 
 const today = new Date();
-const selYear = ref(today.getFullYear());
+const selectedYear = ref(today.getFullYear());
 const selM0 = ref(today.getMonth());
 
 const fileInput = ref<HTMLInputElement | null>(null);
@@ -111,39 +112,49 @@ async function onImportFile(e: Event) {
 // Year totals for TotalsCard
 const yearTotals = computed(() => {
   const yTotals: Record<number, number> = {};
-  for (const yKey in ts.value.years) {
-    const y = Number(yKey);
-    const yState = ts.value.years[y] || ({ months: {} } as any);
+  for (const year in ts.value.years) {
+    const yState = ts.value.years[year] || ({ months: {} } as any);
     let sum = 0;
-    for (const mKey in yState.months || {}) {
-      sum += Object.values(yState.months[mKey] || {}).reduce(
+    for (const month in yState.months || {}) {
+      sum += Object.values(yState.months[month] || {}).reduce(
         (a: number, b: number) => a + (b || 0),
         0
       );
     }
-    yTotals[y] = sum;
+    yTotals[year] = sum;
   }
   return yTotals;
 });
 
-const currentYearTotal = computed(() => yearTotals.value[selYear.value] || 0);
-const currentPrevCarry = computed(
-  () => ts.value.years[selYear.value]?.prevYearCarry ?? 0
+const currentYearTotal = computed(
+  () => yearTotals.value[selectedYear.value] || 0
 );
-const grandTotal = computed(
-  () => currentPrevCarry.value + currentYearTotal.value
-);
+const prevCarry = computed(() => {
+  console.log("Year Totals:", yearTotals);
+  console.log("Year Totals.value:", yearTotals.value);
+  const year = selectedYear.value;
+  const totals = yearTotals.value;
+  const prevYears = Object.keys(totals)
+    .map(Number)
+    .filter((y) => y < year);
+  if (prevYears.length > 0) {
+    return prevYears.reduce((s, y) => s + (totals[y] || 0), 0);
+  }
+  // fallback to stored value when no previous-year totals available
+  return ts.value.years[year]?.prevYearCarry ?? 0;
+});
+const grandTotal = computed(() => prevCarry.value + currentYearTotal.value);
 
 // vac proxy for selected year
 const vac = computed({
   get: () =>
-    ts.value.years[selYear.value]?.vac ?? {
+    ts.value.years[selectedYear.value]?.vac ?? {
       workdayHours: 8.4,
       systemRemainingHours: 87.5,
       rows: [],
     },
   set: (v) => {
-    const year = selYear.value;
+    const year = selectedYear.value;
     const y = ts.value.years[year] || {
       months: {},
       prevYearCarry: 0,

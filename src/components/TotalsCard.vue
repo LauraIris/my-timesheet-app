@@ -3,7 +3,7 @@
     <div class="grid grid-cols-3 gap-4 text-center">
       <div>
         <div class="text-xs uppercase tracking-wide text-neutral-500">
-          Vorjahr
+          Vorjahre (Summe)
         </div>
         <div class="text-lg font-semibold">{{ formatNum(prevYearCarry) }}</div>
       </div>
