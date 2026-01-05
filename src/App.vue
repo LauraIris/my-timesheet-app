@@ -60,8 +60,8 @@
         <section class="md:col-span-2">
           <TimesheetPanel
             v-model:ts="ts"
-            v-model:sel-year="selectedYear"
-            v-model:sel-m0="selM0"
+            v-model:selectedYear="selectedYear"
+            v-model:selectedMonth="selectedMonth"
             :prev-year-carry="prevCarry"
           />
         </section>
@@ -109,7 +109,7 @@ const {
 
 const today = new Date();
 const selectedYear = ref(today.getFullYear());
-const selM0 = ref(today.getMonth());
+const selectedMonth = ref(today.getMonth());
 
 const fileInput = ref<HTMLInputElement | null>(null);
 async function onImportFile(e: Event) {
