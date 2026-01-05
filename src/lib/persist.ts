@@ -2,14 +2,14 @@ import { ref, onMounted, watch } from "vue";
 import type { AppData, TimesheetState, VacationState } from "./types";
 
 const STORAGE_KEY_TS = "timesheet_state_vue";
-const STORAGE_KEY_VAC = "vacation_state_vue"; // kept for compatibility
+const STORAGE_KEY_VAC = "vacation_state_vue";
 
 export const opfsSupported =
   "storage" in navigator &&
   typeof (navigator as any).storage?.getDirectory === "function";
 export const opfsStatus = ref<"idle" | "loaded" | "saved" | "error">("idle");
 
-async function readFromOpfs(ts: any): Promise<boolean> {
+async function readFromOpfs(ts: any, vac: any): Promise<boolean> {
   if (!opfsSupported) return false;
   try {
     const root = await (navigator as any).storage.getDirectory();
@@ -18,17 +18,7 @@ async function readFromOpfs(ts: any): Promise<boolean> {
     const txt = await file.text();
     const data = JSON.parse(txt) as AppData;
     if (data?.ts) ts.value = data.ts;
-    // support legacy top-level vac by mapping into current year
-    if ((data as any)?.vac) {
-      const vacLegacy = (data as any).vac as VacationState;
-      const cy = new Date().getFullYear();
-      ts.value.years = ts.value.years || {};
-      ts.value.years[cy] = ts.value.years[cy] || {
-        months: {},
-        prevYearCarry: 0,
-        vac: vacLegacy,
-      };
-    }
+    if (data?.vac) vac.value = data.vac;
     opfsStatus.value = "loaded";
     return true;
   } catch {
@@ -54,33 +44,28 @@ async function writeToOpfs(data: AppData): Promise<boolean> {
   }
 }
 
-function buildData(ts: TimesheetState): AppData {
-  return { version: 1, updatedAt: new Date().toISOString(), ts } as const;
+function buildData(ts: TimesheetState, vac: VacationState): AppData {
+  return { version: 1, updatedAt: new Date().toISOString(), ts, vac } as const;
 }
 
 export function usePersistedAppData() {
-  const ts = ref<TimesheetState>({ years: {} });
+  const ts = ref<TimesheetState>({ months: {}, prevYearCarry: -4.46 });
+  const vac = ref<VacationState>({
+    workdayHours: 8.4,
+    systemRemainingHours: 87.5,
+    rows: [],
+  });
 
   onMounted(async () => {
     // Load LS
     try {
       const rawTs = localStorage.getItem(STORAGE_KEY_TS);
       if (rawTs) ts.value = JSON.parse(rawTs);
-      // Support legacy separate vacation storage by mapping into current year
       const rawVac = localStorage.getItem(STORAGE_KEY_VAC);
-      if (rawVac) {
-        const vacLegacy = JSON.parse(rawVac) as VacationState;
-        const cy = new Date().getFullYear();
-        ts.value.years = ts.value.years || {};
-        ts.value.years[cy] = ts.value.years[cy] || {
-          months: {},
-          prevYearCarry: 0,
-          vac: vacLegacy,
-        };
-      }
+      if (rawVac) vac.value = JSON.parse(rawVac);
     } catch {}
     // Try OPFS
-    await readFromOpfs(ts);
+    await readFromOpfs(ts, vac);
   });
 
   let timer: number | undefined;
@@ -92,17 +77,19 @@ export function usePersistedAppData() {
   }
 
   async function persistAll() {
-    const data = buildData(ts.value);
+    const data = buildData(ts.value, vac.value);
     try {
       localStorage.setItem(STORAGE_KEY_TS, JSON.stringify(ts.value));
+      localStorage.setItem(STORAGE_KEY_VAC, JSON.stringify(vac.value));
     } catch {}
     await writeToOpfs(data);
   }
 
   watch(ts, schedulePersist, { deep: true });
+  watch(vac, schedulePersist, { deep: true });
 
   function downloadJson() {
-    const data = buildData(ts.value);
+    const data = buildData(ts.value, vac.value);
     const blob = new Blob([JSON.stringify(data, null, 2)], {
       type: "application/json",
     });
@@ -118,40 +105,15 @@ export function usePersistedAppData() {
 
   async function importJsonFile(file: File) {
     const txt = await file.text();
-    const data = JSON.parse(txt) as any;
-
-    // Handle legacy shape where ts had months and prevYearCarry at top-level
-    if (data?.ts && data.ts.months) {
-      const cy = new Date().getFullYear();
-      ts.value = { years: {} };
-      ts.value.years[cy] = {
-        months: {},
-        prevYearCarry: data.ts.prevYearCarry || 0,
-        vac: data.vac || { workdayHours: 8.4, systemRemainingHours: 0, rows: [] },
-      };
-      // convert months keys from YearMonth string to numeric monthIndex0
-      for (const k in data.ts.months) {
-        const [yStr, mStr] = k.split("-");
-        const year = Number(yStr);
-        const m0 = Number(mStr) - 1; // convert stored 1..12 to 0..11
-        const targetYear = year || cy;
-        ts.value.years[targetYear] = ts.value.years[targetYear] || {
-          months: {},
-          prevYearCarry: 0,
-          vac: data.vac || { workdayHours: 8.4, systemRemainingHours: 0, rows: [] },
-        };
-        ts.value.years[targetYear].months[m0] = data.ts.months[k];
-      }
-    } else if (data?.ts) {
-      // New shape
-      ts.value = data.ts;
-    }
-
+    const data = JSON.parse(txt) as AppData;
+    if (data?.ts) ts.value = data.ts;
+    if (data?.vac) vac.value = data.vac;
     await persistAll();
   }
 
   return {
     ts,
+    vac,
     opfsSupported,
     opfsStatus,
     schedulePersist,
