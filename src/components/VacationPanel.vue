@@ -70,7 +70,12 @@
                 inputmode="decimal"
                 class="px-2 py-1.5 rounded-lg border w-full text-right"
                 :value="String(r.days)"
-                @input="e => updateRow(r.id, { days: clampNumber((e.target as HTMLInputElement).value) })"
+                @input="
+                  (e) =>
+                    updateRow(r.id, {
+                      days: clampNumber((e.target as HTMLInputElement).value),
+                    })
+                "
               />
             </td>
             <td class="py-2 pr-3 text-right">
@@ -154,12 +159,51 @@ function sortRows(rows: VacationRow[]) {
 
 const sortedRows = computed(() => sortRows(vacation.rows));
 
+function getLastVacationEndDate(): Date {
+  const lastRow = sortedRows.value[sortedRows.value.length - 1];
+  const now = new Date();
+  if (!lastRow) {
+    return now;
+  }
+  const lastEndDate = new Date(lastRow.endDate);
+
+  if (lastEndDate < now) {
+    return now;
+  }
+  return lastEndDate;
+}
+
+function getNextWorkday(date: Date): Date {
+  const nextDate = new Date(date);
+  nextDate.setDate(nextDate.getDate() + 1);
+  if (nextDate.getDay() === 6) {
+    nextDate.setDate(nextDate.getDate() + 2);
+  } else if (nextDate.getDay() === 0) {
+    nextDate.setDate(nextDate.getDate() + 1);
+  }
+  return nextDate;
+}
+
+function getDateAsString(date: Date) {
+  return date.toISOString().split("T")[0];
+}
+
 function addRow() {
+  const lastVacationEndDate = getLastVacationEndDate();
+  const startDate = getNextWorkday(lastVacationEndDate);
+  const endDate = new Date(startDate);
+  endDate.setDate(endDate.getDate() + 1);
   emit("update:vacation", {
     ...vacation,
     rows: sortRows([
       ...vacation.rows,
-      { id: uid(), label: "Ferien", days: 1, startDate: "", endDate: "" },
+      {
+        id: uid(),
+        label: "Ferien",
+        days: 1,
+        startDate: getDateAsString(startDate),
+        endDate: getDateAsString(endDate),
+      },
     ]),
   });
 }
@@ -167,7 +211,7 @@ function updateRow(id: string, patch: Partial<VacationRow>) {
   emit("update:vacation", {
     ...vacation,
     rows: sortRows(
-      vacation.rows.map((r) => (r.id === id ? { ...r, ...patch } : r))
+      vacation.rows.map((r) => (r.id === id ? { ...r, ...patch } : r)),
     ),
   });
 }
