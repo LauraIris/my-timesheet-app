@@ -1,4 +1,4 @@
-import type { YearMonth } from "./types";
+import type { VacationRow, YearMonth } from "./types";
 
 export function clampNumber(input: string): number {
   const normalized = input.replace(",", ".");
@@ -58,4 +58,76 @@ export function isWeekend(year: number, monthIndex0: number, d: number) {
 
 export function uid() {
   return Math.random().toString(36).slice(2, 10);
+}
+
+// --- ISO date-string ("YYYY-MM-DD") helpers ---
+// Arithmetic is anchored to UTC midnight so it can't drift across DST
+// changes or the caller's local timezone offset — only the calendar date
+// (never a real instant) is ever in play here.
+
+function parseDateOnly(dateStr: string): Date {
+  return new Date(`${dateStr}T00:00:00Z`);
+}
+
+function formatDateOnly(date: Date): string {
+  return date.toISOString().split("T")[0];
+}
+
+export function addDays(dateStr: string, amount: number): string {
+  const date = parseDateOnly(dateStr);
+  date.setUTCDate(date.getUTCDate() + amount);
+  return formatDateOnly(date);
+}
+
+export function isWeekendDate(dateStr: string): boolean {
+  const day = parseDateOnly(dateStr).getUTCDay();
+  return day === 0 || day === 6;
+}
+
+// Today's date where the user actually is — this is the one place local
+// time is intentionally used, since "today" means the caller's calendar day.
+export function todayDateString(): string {
+  const now = new Date();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${now.getFullYear()}-${month}-${day}`;
+}
+
+export function getNextWorkday(dateStr: string): string {
+  let next = addDays(dateStr, 1);
+  while (isWeekendDate(next)) {
+    next = addDays(next, 1);
+  }
+  return next;
+}
+
+// Inclusive on both ends: a vacation from Monday to Friday counts 5 days.
+export function countWorkdays(startDate: string, endDate: string): number {
+  if (!startDate || !endDate || startDate > endDate) {
+    return 0;
+  }
+
+  let current = startDate;
+  let workdays = 0;
+  while (current <= endDate) {
+    if (!isWeekendDate(current)) {
+      workdays += 1;
+    }
+    current = addDays(current, 1);
+  }
+  return workdays;
+}
+
+// The earliest sensible start for a newly added vacation row: the day after
+// the latest existing row's end date, or today if that's later (or there
+// are no rows yet).
+export function getLastVacationEndDate(
+  sortedRows: VacationRow[],
+  todayStr: string
+): string {
+  const lastRow = sortedRows[sortedRows.length - 1];
+  if (!lastRow) {
+    return todayStr;
+  }
+  return lastRow.endDate > todayStr ? lastRow.endDate : todayStr;
 }

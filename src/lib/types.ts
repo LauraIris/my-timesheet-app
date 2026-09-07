@@ -1,5 +1,7 @@
 export type Month = Record<number, number>; // day -> hours
 
+export type YearMonth = `${number}-${number}`;
+
 export type VacationRow = {
   id: string;
   label: string;
@@ -34,7 +36,7 @@ export function defaultVacationState(): VacationState {
 
 export function defaultYearState(
   prevYearCarry: number,
-  vacationState?: VacationState
+  vacationState?: VacationState,
 ): YearState {
   return {
     months: {},

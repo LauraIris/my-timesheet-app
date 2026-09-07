@@ -69,7 +69,7 @@
           <VacationPanel
             v-model:vacation="vacation"
             v-model:workday-hours="workdayHours"
-            :computed="vacationComputed"
+            :stats="vacationComputed"
           />
         </aside>
       </div>
@@ -129,12 +129,6 @@ function getTimesheetStateOfYear(year: any): YearState {
   );
 }
 
-function getYears(): number[] {
-  return Object.keys(getTimesheetStateYears())
-    .map(Number)
-    .sort((a, b) => a - b);
-}
-
 // Year totals for TotalsCard
 const yearTotals = computed(() => {
   const yTotals: Record<number, number> = {};
@@ -144,7 +138,7 @@ const yearTotals = computed(() => {
     for (const month in yState.months || {}) {
       sum += Object.values(yState.months[month] || {}).reduce(
         (a: number, b: number) => a + (b || 0),
-        0
+        0,
       );
     }
     yTotals[year] = sum;
@@ -153,7 +147,7 @@ const yearTotals = computed(() => {
 });
 
 const currentYearTotal = computed(
-  () => yearTotals.value[selectedYear.value] || 0
+  () => yearTotals.value[selectedYear.value] || 0,
 );
 
 function getPrevYearCarry(year: number): number {
@@ -203,7 +197,7 @@ const vacation = computed({
 const vacationComputed = computed(() => {
   const hoursUsed = vacation.value.rows.reduce(
     (acc, r) => acc + r.days * workdayHours.value,
-    0
+    0,
   );
   const hoursRemaining = vacation.value.systemRemainingHours - hoursUsed;
   const daysRemaining = hoursRemaining / workdayHours.value;

@@ -49,14 +49,16 @@
               <input
                 type="date"
                 class="px-2 py-1.5 rounded-lg border w-full"
-                v-model="r.startDate"
+                :value="r.startDate"
+                @change="onDateChange(r.id, 'startDate', $event)"
               />
             </td>
             <td class="py-2 pr-3">
               <input
                 type="date"
                 class="px-2 py-1.5 rounded-lg border w-full"
-                v-model="r.endDate"
+                :value="r.endDate"
+                @change="onDateChange(r.id, 'endDate', $event)"
               />
             </td>
             <td class="py-2 pr-3">
@@ -69,13 +71,9 @@
               <input
                 inputmode="decimal"
                 class="px-2 py-1.5 rounded-lg border w-full text-right"
-                :value="String(r.days)"
-                @input="
-                  (e) =>
-                    updateRow(r.id, {
-                      days: clampNumber((e.target as HTMLInputElement).value),
-                    })
-                "
+                :value="dayInputValue(r)"
+                @input="onDaysInput(r.id, $event)"
+                @blur="onDaysBlur(r.id)"
               />
             </td>
             <td class="py-2 pr-3 text-right">
@@ -109,19 +107,23 @@
 <script setup lang="ts">
 import NumberField from "./NumberField.vue";
 import Stat from "./Stat.vue";
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import type { VacationRow, VacationState } from "../lib/types";
-import { clampNumber, formatNum, uid } from "../lib/utils";
+import {
+  clampNumber,
+  countWorkdays,
+  formatNum,
+  getLastVacationEndDate,
+  getNextWorkday,
+  todayDateString,
+  uid,
+} from "../lib/utils";
 import { TrashIcon } from "@heroicons/vue/24/outline";
 
-const {
-  vacation,
-  workdayHours,
-  computed: stats,
-} = defineProps<{
+const { vacation, workdayHours, stats } = defineProps<{
   vacation: VacationState;
   workdayHours: number;
-  computed: {
+  stats: {
     hoursUsed: number;
     hoursRemaining: number;
     daysRemaining: number;
@@ -144,6 +146,35 @@ const systemRemainingHoursProxy = computed<number>({
   set: (v) => emit("update:vacation", { ...vacation, systemRemainingHours: v }),
 });
 
+const dayInputDrafts = ref<Record<string, string>>({});
+
+function dayInputValue(row: VacationRow) {
+  return dayInputDrafts.value[row.id] ?? String(row.days);
+}
+
+function onDaysInput(id: string, event: Event) {
+  const input = (event.target as HTMLInputElement).value;
+  dayInputDrafts.value[id] = input;
+  updateRow(id, { days: clampNumber(input) });
+}
+
+function onDaysBlur(id: string) {
+  delete dayInputDrafts.value[id];
+}
+
+function onDateChange(id: string, field: "startDate" | "endDate", event: Event) {
+  const value = (event.target as HTMLInputElement).value;
+  const row = vacation.rows.find((currentRow) => currentRow.id === id);
+  if (!row) return;
+
+  const startDate = field === "startDate" ? value : row.startDate;
+  const endDate = field === "endDate" ? value : row.endDate;
+  updateRow(id, {
+    [field]: value,
+    days: countWorkdays(startDate, endDate),
+  });
+}
+
 function sortRows(rows: VacationRow[]) {
   const sentinel = "9999-12-31";
   return rows.slice().sort((a, b) => {
@@ -159,66 +190,31 @@ function sortRows(rows: VacationRow[]) {
 
 const sortedRows = computed(() => sortRows(vacation.rows));
 
-function getLastVacationEndDate(): Date {
-  const lastRow = sortedRows.value[sortedRows.value.length - 1];
-  const now = new Date();
-  if (!lastRow) {
-    return now;
-  }
-  const lastEndDate = new Date(lastRow.endDate);
-
-  if (lastEndDate < now) {
-    return now;
-  }
-  return lastEndDate;
-}
-
-function getNextWorkday(date: Date): Date {
-  const nextDate = new Date(date);
-  nextDate.setDate(nextDate.getDate() + 1);
-  if (nextDate.getDay() === 6) {
-    nextDate.setDate(nextDate.getDate() + 2);
-  } else if (nextDate.getDay() === 0) {
-    nextDate.setDate(nextDate.getDate() + 1);
-  }
-  return nextDate;
-}
-
-function getDateAsString(date: Date) {
-  return date.toISOString().split("T")[0];
+function commitRows(rows: VacationRow[]) {
+  emit("update:vacation", { ...vacation, rows: sortRows(rows) });
 }
 
 function addRow() {
-  const lastVacationEndDate = getLastVacationEndDate();
+  const lastVacationEndDate = getLastVacationEndDate(
+    sortedRows.value,
+    todayDateString(),
+  );
   const startDate = getNextWorkday(lastVacationEndDate);
-  const endDate = new Date(startDate);
-  endDate.setDate(endDate.getDate() + 1);
-  emit("update:vacation", {
-    ...vacation,
-    rows: sortRows([
-      ...vacation.rows,
-      {
-        id: uid(),
-        label: "Ferien",
-        days: 1,
-        startDate: getDateAsString(startDate),
-        endDate: getDateAsString(endDate),
-      },
-    ]),
-  });
+  commitRows([
+    ...vacation.rows,
+    {
+      id: uid(),
+      label: "Ferien",
+      days: countWorkdays(startDate, startDate),
+      startDate,
+      endDate: startDate,
+    },
+  ]);
 }
 function updateRow(id: string, patch: Partial<VacationRow>) {
-  emit("update:vacation", {
-    ...vacation,
-    rows: sortRows(
-      vacation.rows.map((r) => (r.id === id ? { ...r, ...patch } : r)),
-    ),
-  });
+  commitRows(vacation.rows.map((r) => (r.id === id ? { ...r, ...patch } : r)));
 }
 function deleteRow(id: string) {
-  emit("update:vacation", {
-    ...vacation,
-    rows: vacation.rows.filter((r) => r.id !== id),
-  });
+  commitRows(vacation.rows.filter((r) => r.id !== id));
 }
 </script>
