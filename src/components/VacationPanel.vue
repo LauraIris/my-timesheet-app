@@ -8,6 +8,9 @@
           >Arbeitsstunden pro Tag</label
         >
         <NumberField id="workday" v-model="workdayHoursProxy" :step="0.1" />
+        <label for="remainingHours" class="text-sm text-neutral-600"
+          >Ferienstunden Total</label
+        >
         <NumberField
           id="remainingHours"
           v-model="systemRemainingHoursProxy"
@@ -162,7 +165,11 @@ function onDaysBlur(id: string) {
   delete dayInputDrafts.value[id];
 }
 
-function onDateChange(id: string, field: "startDate" | "endDate", event: Event) {
+function onDateChange(
+  id: string,
+  field: "startDate" | "endDate",
+  event: Event,
+) {
   const value = (event.target as HTMLInputElement).value;
   const row = vacation.rows.find((currentRow) => currentRow.id === id);
   if (!row) return;

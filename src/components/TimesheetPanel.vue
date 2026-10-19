@@ -78,10 +78,10 @@
                 isToday(selectedYear, m0, d)
                   ? 'ring-2 ring-indigo-500 bg-indigo-50'
                   : isWeekend(selectedYear, m0, d)
-                  ? 'bg-neutral-50'
-                  : isCurrentMonth(m0)
-                  ? 'bg-amber-50'
-                  : 'bg-white',
+                    ? 'bg-neutral-50'
+                    : isCurrentMonth(m0)
+                      ? 'bg-amber-50'
+                      : 'bg-white',
               ]"
             >
               <div class="text-center text-xs mb-1">
@@ -98,9 +98,11 @@
                   isWeekend(selectedYear, m0, d) ? 'bg-neutral-100' : 'bg-white'
                 "
                 :value="String(dayValue(m0, d) ?? 0)"
-                @blur="(e:any) => commitDay(m0, d, e.target.value)"
-                @keydown.enter.prevent="(e:any) => commitDay(m0, d, e.target.value)"
-                @change="(e:any) => commitDay(m0, d, e.target.value)"
+                @blur="(e: any) => commitDay(m0, d, e.target.value)"
+                @keydown.enter.prevent="
+                  (e: any) => commitDay(m0, d, e.target.value)
+                "
+                @change="(e: any) => commitDay(m0, d, e.target.value)"
                 :aria-label="`Hours on ${d}.${m0 + 1}.${selectedYear}`"
               />
             </div>
@@ -174,6 +176,7 @@ const yearOptions = computed(() => {
   const keys = Object.keys(props.ts.years).map(Number);
   const s = new Set<number>(keys);
   s.add(currentYear);
+  s.add(currentYear + 1);
   return Array.from(s).sort((a, b) => a - b);
 });
 const currentDay = now.getDate();
@@ -211,7 +214,7 @@ watch(
   () => {
     for (const m0 of monthsToShow.value) ensureMonth(props.selectedYear, m0);
   },
-  { immediate: true }
+  { immediate: true },
 );
 
 function dayValue(m0: number, d: number) {
@@ -227,8 +230,8 @@ function monthTotal(m0: number) {
 const ytdTotal = computed(() =>
   monthsToShow.value.reduce(
     (sum: number, m0: number) => sum + monthTotal(m0),
-    0
-  )
+    0,
+  ),
 );
 
 function onYearChange(e: Event) {

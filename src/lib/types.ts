@@ -25,7 +25,7 @@ export type YearState = {
 };
 
 export const DEFAULT_WORKDAY_HOURS = 8.4;
-export const DEFAULT_VACATION_REMAINING_HOURS = 87.5;
+export const DEFAULT_VACATION_REMAINING_HOURS = 210;
 
 export function defaultVacationState(): VacationState {
   return {
